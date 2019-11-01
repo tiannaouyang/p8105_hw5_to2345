@@ -19,7 +19,7 @@ iris_with_missing =
 # Problem 1
 For numeric variables, you should fill in missing values with the mean of non-missing values
 For character variables, you should fill in missing values with "virginica"
-```{r}
+```{r question1}
 fill_na = function(x) {
   output = vector(length = length(x))
   for (i in 1:length(x)) {
@@ -47,7 +47,7 @@ iris_filled = map(iris_with_missing, fill_na) %>%
 
 # Problem 2
 
-```{r, warning=FALSE, message = FALSE}
+```{r question2, warning=FALSE, message = FALSE}
 filenames = list.files("data")
 
 study_data = 
@@ -78,9 +78,8 @@ study_data =
 
 ```
 
-
-# Here is the spaghetti plot showing observations on each subject over time
-```{r}
+Here is the spaghetti plot showing observations on each subject over time
+```{r spaghetti}
 
 study_data %>% 
   ggplot(
@@ -104,10 +103,63 @@ study_data %>%
 Comment: From the spaghetti plot, we can clearly see that the weekly observation for the experiment group increases as time increases; however, the observed data on the control arm did not show improvement in the outcome and slight decrease is observed.
 
 
+# Problem 3
+```{r question3}
+
+sim_regression = function (n = 30, beta0 = 2, beta1 = 0, sigma = 50){
+  
+  sim_data = tibble(
+    xi1 = rnorm(n, 0, 1),
+    yi = beta0 + beta1*xi1 + rnorm(n, 0, sigma)
+)
+  
+  ls_fit = lm(yi ~ xi1, data = sim_data)
+  
+  tibble(
+    beta2 = broom::tidy(ls_fit)$estimate[2],
+    p_value = broom::tidy(ls_fit)$p.value[2],
+    alpha = 0.5
+  )
+}
+
+rerun(10000, sim_regression())
+```
+
+
+```{r}
+sim_results = 
+  tibble(beta1s = c(1,2,3,4,5,6)) %>% 
+  mutate(
+    output_list = map(.x = beta1s, ~rerun(100, sim_regression(beta1 = .x))),
+    estimate_dfs = map(output_list, bind_rows)
+  ) %>% 
+  select(-output_list) %>% 
+  unnest(estimate_dfs) %>% 
+  mutate(
+    reject_null = ifelse(p_value < alpha, 1, 0)
+  )
+  
+```
+
+
+```{r}
+sim_results %>% 
+  group_by(beta2) %>% 
+  mutate(
+    sum_reject_null = sum(reject_null),
+    avg_reject_null = mean(sum_reject_null)) %>% 
+  ungroup() %>% 
+  ggplot(
+    aes(
+      x = beta2,
+      y = p_value
+    )
+  ) +
+  geom_point()
 
 
 
-
+```
 
 
 
