@@ -16,6 +16,7 @@ iris_with_missing =
 
 ```
 
+
 # Problem 1
 For numeric variables, you should fill in missing values with the mean of non-missing values
 For character variables, you should fill in missing values with "virginica"
@@ -122,7 +123,8 @@ sim_regression = function (n = 30, beta0 = 2, beta1 = 0, sigma = 50){
   )
 }
 
-rerun(1000, sim_regression())
+rerun(10000, sim_regression()) %>% 
+  bind_rows
 ```
 
 
@@ -130,7 +132,7 @@ rerun(1000, sim_regression())
 sim_results = 
   tibble(beta1s = c(1,2,3,4,5,6)) %>% 
   mutate(
-    output_list = map(.x = beta1s, ~rerun(100, sim_regression(beta1 = .x))),
+    output_list = map(.x = beta1s, ~rerun(10000, sim_regression(beta1 = .x))),
     estimate_dfs = map(output_list, bind_rows)
   ) %>% 
   select(-output_list) %>% 
@@ -144,15 +146,15 @@ sim_results =
 
 ```{r plot1}
 sim_results %>% 
-  group_by(beta2) %>% 
+  group_by(beta1_hat) %>% 
   mutate(
-    sum_reject_null = sum(reject_null),
-    avg_reject_null = mean(sum_reject_null)) %>% 
+    obs = n(),
+    reject_null_prop = sum(p_value < 0.05)/obs) %>% 
   ungroup() %>% 
   ggplot(
     aes(
-      x = beta2,
-      y = p_value
+      x = beta1_hat,
+      y = reject_null_prop
     )
   ) +
   geom_point()+
@@ -160,13 +162,60 @@ sim_results %>%
 
 ```
 
+From the plot we can see that it appears to have a positive association between the proportion of times the null was rejected (the power of the test) and the effect size.
 
-```{r plot2}
+
+
+
+
+```{r plot2,echo=FALSE}
 sim_results %>% 
-  
-
-
-
+  group_by(beta1s) %>% 
+  mutate(
+    avg_beta = mean(beta1_hat)
+  ) %>% 
+  ungroup() %>% 
+  ggplot(
+    aes(
+      x = beta1s,
+      y = avg_beta      )
+  )+
+  geom_point()+
+  theme_minimal()+
+  stat_smooth(
+    method = "lm"
+    ) 
 
 ```
+
+This plot whos the average estimate of beta 1 on the y axis and the true value of beta 1 on the x axis. From the graph we can see a positve relationship between the true value of beta1 and the average estimate of the slope.
+
+
+
+
+```{r plot3, echo=FALSE}
+sim_results %>% 
+  filter(reject_null == 1) %>% 
+  group_by(beta1s) %>% 
+  mutate(
+    avg_beta = mean(beta1_hat)
+  ) %>% 
+  ungroup() %>% 
+  ggplot(
+    aes(
+      x = beta1s,
+      y = avg_beta      )
+  )+
+  geom_point()+
+  theme_minimal()+
+  stat_smooth(
+    method = "lm"
+    )
+
+```
+
+The plot above shows the average estimate of beta1 only in samples for which the null was rejected on the y axis and the true value of beta1 on the x axis.
+From the compariso nof two plots, we can see that the sample average of beta1s across tests for which the null is rejected does not equal to the true value of beta1. Instead, it is higher than the true value of beta1.
+The reason is that, among the trials where the null is rejected, we excludes the rows where the estimated beta1 approximates 0, therefore, the sample average of beta1s across tests for which the null is rejected will be higher than that across all trials. 
+
 
